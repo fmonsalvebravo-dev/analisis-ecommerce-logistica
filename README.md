@@ -2,7 +2,7 @@
 
 ¿Los atrasos en la entrega bajan la satisfacción de los clientes? ¿El atraso se origina en el vendedor o en el transporte? ¿Por qué casi ningún cliente vuelve a comprar? Este proyecto analiza unos 100 mil pedidos reales de un marketplace brasileño en cuatro etapas: **exploración inicial** de una base desconocida, **SQL** para limpiar los datos y responder las preguntas de negocio, **Python** para separar el efecto de cada factor y segmentar a los vendedores, y **Power BI** para presentar los resultados.
 
-> **Proyecto en desarrollo.** Etapa 0 (carga y exploración) completa. Las siguientes etapas se irán agregando a medida que avance el análisis.
+> **Proyecto en desarrollo.** Etapa 0 (carga y exploración) completa; Etapa 1 (SQL) en curso. Las siguientes etapas se irán agregando a medida que avance el análisis.
 
 ## Hallazgos principales
 
@@ -16,7 +16,7 @@ analisis-ecommerce-logistica/
 ├── sql/
 │   ├── 01_creacion_y_carga.sql       Creación de la base y carga de los 9 CSV
 │   ├── 02_exploracion_inicial.sql    Inventario, verificación de hipótesis y reglas de limpieza
-│   ├── 03_limpieza_vistas.sql        (pendiente) Reglas de limpieza como vistas
+│   ├── 03_limpieza_vistas.sql        Reglas de limpieza convertidas en vistas
 │   ├── 04_ventas.sql                 (pendiente) Tendencias, categorías y regiones
 │   ├── 05_atrasos_y_resenas.sql      (pendiente) Atrasos, notas y origen del atraso
 │   ├── 06_recompra.sql               (pendiente) Clientes que vuelven a comprar
@@ -103,6 +103,7 @@ Comparar el total de filas con los valores distintos de cada columna (cardinalid
 | 5 | Productos sin categoría → "sin_categoria"; se agregan las 2 traducciones faltantes |
 | 6 | Análisis geográfico por estado, no por coordenadas |
 | 7 | Ventas desde `order_items` (precio + flete); los pagos solo se usan para analizar medios de pago |
+| 8 | Se excluyen los pedidos cancelados y no disponibles, porque no son ventas concretadas |
 
 ### Preguntas de negocio y priorización
 
@@ -146,7 +147,14 @@ Las preguntas posibles se evaluaron según cuatro criterios: **impacto en el neg
 4. Verificación de hipótesis sobre claves, duplicados, valores faltantes y coherencia de fechas.
 5. Definición de las reglas de limpieza y priorización de las preguntas de negocio.
 
-**Etapa 1: SQL** *(pendiente)*
+**Etapa 1: SQL** *(en curso)*
+
+1. **Reglas de limpieza convertidas en vistas**, para aplicarlas una sola vez y que todos los análisis partan de los mismos datos:
+   - `v_resenas`: una reseña por pedido, la más reciente (`ROW_NUMBER`).
+   - `v_productos`: categoría en inglés, sin vacíos.
+   - `v_pedidos`: vista central, con una fila por pedido. Incluye el cliente real, los montos, la nota y los tiempos de cada etapa del despacho: preparación del vendedor, transporte, entrega total, plazo prometido, días de atraso y si el vendedor cumplió su plazo. Los tiempos solo se calculan para pedidos con fechas válidas, así ningún análisis de atrasos puede incluir fechas incompletas o imposibles.
+   - `v_items`: una fila por producto vendido, con categoría y estados del vendedor y del cliente.
+2. **Verificación de las vistas:** una sola reseña y una sola fila por pedido, y ventas que cuadran entre vistas (R$ 15,7 millones). Quedaron 97.905 pedidos en el período, y 96.018 sirven para analizar atrasos (98%).
 
 **Etapa 2: Python** *(pendiente)*
 

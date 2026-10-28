@@ -2,7 +2,7 @@
 
 ¿Los atrasos en la entrega bajan la satisfacción de los clientes? ¿El atraso se origina en el vendedor o en el transporte? ¿Por qué casi ningún cliente vuelve a comprar? Este proyecto analiza unos 100 mil pedidos reales de un marketplace brasileño en cuatro etapas: **exploración inicial** de una base desconocida, **SQL** para limpiar los datos y responder las preguntas de negocio, **Python** para separar el efecto de cada factor y segmentar a los vendedores, y **Power BI** para presentar los resultados.
 
-> **Proyecto en desarrollo.** Etapa 0 (carga y exploración) completa; Etapa 1 (SQL) en curso. Las siguientes etapas se irán agregando a medida que avance el análisis.
+>**Proyecto en desarrollo.** Etapa 0 (carga y exploración) completa; Etapa 1 (SQL) en curso. Las siguientes etapas se irán agregando a medida que avance el análisis.
 
 ## Hallazgos principales
 
@@ -17,7 +17,7 @@ analisis-ecommerce-logistica/
 │   ├── 01_creacion_y_carga.sql       Creación de la base y carga de los 9 CSV
 │   ├── 02_exploracion_inicial.sql    Inventario, verificación de hipótesis y reglas de limpieza
 │   ├── 03_limpieza_vistas.sql        Reglas de limpieza convertidas en vistas
-│   ├── 04_ventas.sql                 (pendiente) Tendencias, categorías y regiones
+│   ├── 04_ventas.sql                 Tendencias, categorías y regiones
 │   ├── 05_atrasos_y_resenas.sql      (pendiente) Atrasos, notas y origen del atraso
 │   ├── 06_recompra.sql               (pendiente) Clientes que vuelven a comprar
 │   └── 07_vendedores.sql             (pendiente) Características de vendedores para la segmentación
@@ -139,7 +139,7 @@ Las preguntas posibles se evaluaron según cuatro criterios: **impacto en el neg
 
 ## Metodología
 
-**Etapa 0: Carga y exploración** 
+**Etapa 0: Carga y exploración**
 
 1. Creación de la base en MySQL con claves primarias y foráneas, y carga de los 9 CSV con `LOAD DATA`. Los códigos postales se guardaron como texto para conservar los ceros a la izquierda, y las celdas vacías como `NULL`.
 2. Verificación de las filas cargadas contra los totales publicados en Kaggle.
@@ -155,10 +155,54 @@ Las preguntas posibles se evaluaron según cuatro criterios: **impacto en el neg
    - `v_pedidos`: vista central, con una fila por pedido. Incluye el cliente real, los montos, la nota y los tiempos de cada etapa del despacho: preparación del vendedor, transporte, entrega total, plazo prometido, días de atraso y si el vendedor cumplió su plazo. Los tiempos solo se calculan para pedidos con fechas válidas, así ningún análisis de atrasos puede incluir fechas incompletas o imposibles.
    - `v_items`: una fila por producto vendido, con categoría y estados del vendedor y del cliente.
 2. **Verificación de las vistas:** una sola reseña y una sola fila por pedido, y ventas que cuadran entre vistas (R$ 15,7 millones). Quedaron 97.905 pedidos en el período, y 96.018 sirven para analizar atrasos (98%).
+3. **Ventas:** evolución mensual y crecimiento mes a mes (`LAG`), participación de cada categoría y concentración de ventas (sumas de ventana acumuladas), categoría líder por estado (`RANK` con `PARTITION BY`) y ventas por estado.
 
 **Etapa 2: Python** *(pendiente)*
 
 **Etapa 3: Power BI** *(pendiente)*
+
+## Análisis en SQL
+
+### Ventas: ¿cómo evolucionan y dónde se concentran?
+
+Las consultas completas están en [`sql/04_ventas.sql`](sql/04_ventas.sql). En el período analizado (enero 2017 a agosto 2018) se vendieron **R$ 15,7 millones en 97.905 pedidos**.
+
+**1. Las ventas crecieron durante 2017 y se estancaron en 2018.**
+
+| Período | Pedidos por mes | Ventas por mes | Ticket promedio |
+|---|---:|---:|---:|
+| Enero 2017 | 787 | R$ 137 mil | R$ 174 |
+| Noviembre 2017 (peak) | 7.421 | R$ 1,17 millones | R$ 158 |
+| Marzo a agosto 2018 | 6.100 a 7.200 | R$ 1,0 a 1,16 millones | R$ 155 a 168 |
+
+- El mes con más ventas es **noviembre 2017 (+53%)**, por el Black Friday. Diciembre cae un 26,5%.
+- Desde marzo de 2018 las ventas se mantienen entre R$ 1,0 y 1,16 millones mensuales, sin crecer.
+- El ticket promedio casi no cambia (R$ 147 a 175): el crecimiento vino de **más pedidos, no de pedidos más caros**.
+- Esto es consistente con el problema de recompra: si el 96,9% de los clientes compra una sola vez, crecer depende de captar clientes nuevos todo el tiempo.
+
+**2. Las ventas están repartidas entre muchas categorías.**
+
+| Categoría | % de las ventas | % acumulado |
+|---|---:|---:|
+| Salud y belleza | 9,1% | 9,1% |
+| Relojes y regalos | 8,3% | 17,4% |
+| Cama, mesa y baño | 7,9% | 25,3% |
+| Deportes y ocio | 7,3% | 32,6% |
+| Accesorios de computación | 6,7% | 39,3% |
+
+- Ninguna categoría domina: la primera tiene solo el 9,1%. Hacen falta **18 categorías para llegar al 80%** de las ventas.
+- Salud y belleza es la categoría líder en 15 de los 27 estados, sobre todo en el norte y nordeste. Los estados grandes tienen preferencias distintas: cama, mesa y baño en SP; relojes y regalos en RJ.
+
+**3. Las ventas sí están concentradas geográficamente.**
+
+| Estado | % de las ventas | % acumulado |
+|---|---:|---:|
+| São Paulo (SP) | 37,4% | 37,4% |
+| Río de Janeiro (RJ) | 13,4% | 50,8% |
+| Minas Gerais (MG) | 11,7% | 62,5% |
+
+- Solo SP es más de un tercio de las ventas, y con **7 de los 27 estados se llega al 80%**.
+- El valor por pedido es mayor en los estados alejados del sudeste (por ejemplo, R$ 265 en Paraíba contra R$ 143 en SP). Una posible explicación es el costo del flete, que se revisa en el análisis de atrasos.
 
 ## Autor
 

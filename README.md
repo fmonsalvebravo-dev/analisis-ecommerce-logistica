@@ -2,7 +2,7 @@
 
 ¿Los atrasos en la entrega bajan la satisfacción de los clientes? ¿El atraso se origina en el vendedor o en el transporte? ¿Por qué casi ningún cliente vuelve a comprar? Este proyecto analiza unos 100 mil pedidos reales de un marketplace brasileño en cuatro etapas: **exploración inicial** de una base desconocida, **SQL** para limpiar los datos y responder las preguntas de negocio, **Python** para separar el efecto de cada factor y segmentar a los vendedores, y **Power BI** para presentar los resultados.
 
->**Proyecto en desarrollo.** Etapa 0 (carga y exploración) completa; Etapa 1 (SQL) en curso. Las siguientes etapas se irán agregando a medida que avance el análisis.
+>**Proyecto en desarrollo.** Etapas 0 (carga y exploración) y 1 (SQL) completas; Etapa 2 (Python) en curso. Las siguientes etapas se irán agregando a medida que avance el análisis.
 
 ## Hallazgos principales
 
@@ -20,7 +20,7 @@ analisis-ecommerce-logistica/
 │   ├── 04_ventas.sql                 Tendencias, categorías y regiones
 │   ├── 05_atrasos_y_resenas.sql      Atrasos, notas, promesa de entrega y origen del atraso
 │   ├── 06_recompra.sql               Definición de recompra y clientes que vuelven
-│   └── 07_vendedores.sql             (pendiente) Características de vendedores para la segmentación
+│   └── 07_vendedores.sql             Características de cada vendedor para la segmentación
 ├── python/                           (pendiente)
 └── powerbi/                          (pendiente)
 ```
@@ -139,7 +139,7 @@ Las preguntas posibles se evaluaron según cuatro criterios: **impacto en el neg
 
 ## Metodología
 
-**Etapa 0: Carga y exploración**
+**Etapa 0: Carga y exploración** 
 
 1. Creación de la base en MySQL con claves primarias y foráneas, y carga de los 9 CSV con `LOAD DATA`. Los códigos postales se guardaron como texto para conservar los ceros a la izquierda, y las celdas vacías como `NULL`.
 2. Verificación de las filas cargadas contra los totales publicados en Kaggle.
@@ -147,7 +147,7 @@ Las preguntas posibles se evaluaron según cuatro criterios: **impacto en el neg
 4. Verificación de hipótesis sobre claves, duplicados, valores faltantes y coherencia de fechas.
 5. Definición de las reglas de limpieza y priorización de las preguntas de negocio.
 
-**Etapa 1: SQL** *(en curso)*
+**Etapa 1: SQL** 
 
 1. **Reglas de limpieza convertidas en vistas**, para aplicarlas una sola vez y que todos los análisis partan de los mismos datos:
    - `v_resenas`: una reseña por pedido, la más reciente (`ROW_NUMBER`).
@@ -158,6 +158,7 @@ Las preguntas posibles se evaluaron según cuatro criterios: **impacto en el neg
 3. **Ventas:** evolución mensual y crecimiento mes a mes (`LAG`), participación de cada categoría y concentración de ventas (sumas de ventana acumuladas), categoría líder por estado (`RANK` con `PARTITION BY`) y ventas por estado.
 4. **Atrasos y reseñas:** nota y % de malas reseñas (1 o 2 estrellas) según atraso y tramo de atraso, holgura de la fecha prometida por estado, descomposición del tiempo de entrega en preparación del vendedor y transporte, efecto de recibir el pedido por partes, cambio de nota entre reseñas de un mismo pedido (`COUNT(*) OVER`, `MAX(CASE ...)`) y peso del flete por estado.
 5. **Recompra:** tiempo entre la primera y la segunda compra (`LAG` con `PARTITION BY`), definición de recompra sin compras del mismo día y con igual tiempo de observación para todos, vista `v_clientes` con una fila por cliente y los datos de su primera compra, y comparación de la recompra según la nota y el atraso de la primera compra.
+6. **Vendedores:** distribución de pedidos y ventas por vendedor, y vista `v_vendedores` con una fila por vendedor: volumen (pedidos, ventas, ticket, categorías, días activo) y calidad (preparación, cumplimiento de plazo, atrasos, nota y malas reseñas). Las métricas de calidad usan solo pedidos de un vendedor, para atribuir bien la responsabilidad. Es la base de la segmentación en Python.
 
 **Etapa 2: Python** *(pendiente)*
 
@@ -280,6 +281,34 @@ Por eso se definió que un cliente **volvió** si hizo otra compra en un día di
 - Una mala nota o un atraso bajan la recompra solo unas décimas. **Incluso los clientes que pusieron 5 estrellas casi no vuelven.**
 - La baja recompra parece un **problema estructural, no logístico**. Una hipótesis: Olist conecta a vendedores pequeños con grandes tiendas online, y el cliente compra en la tienda grande muchas veces sin saber que detrás está Olist. Si vuelve a esa tienda y le compra a otro vendedor, esa compra no aparece en estos datos.
 - Es una conclusión negativa, pero valiosa: mejorar la logística mejora la satisfacción, pero no basta para que los clientes vuelvan.
+
+### Vendedores: ¿qué tan distintos son?
+
+Las consultas completas están en [`sql/07_vendedores.sql`](sql/07_vendedores.sql).
+
+**1. Pocos vendedores concentran la mayor parte de las ventas.**
+
+| Pedidos por vendedor | % de vendedores | % de las ventas |
+|---|---:|---:|
+| Menos de 10 | 58,5% | 8,9% |
+| 10 a 199 | 38,5% | 53,4% |
+| 200 o más | 3,0% | 37,7% |
+
+- **91 vendedores (3%) generan el 38% de las ventas**, mientras que casi 6 de cada 10 tienen menos de 10 pedidos.
+- Para la segmentación se usan los **1.258 vendedores con 10 o más pedidos**, que generan el 91% de las ventas. Con menos pedidos, las tasas no son confiables (un solo atraso en 1 pedido es un 100%).
+
+**2. Los vendedores que no cumplen su plazo tienen más atrasos y peores notas.**
+
+| Cumplimiento del plazo de despacho | Vendedores | Preparación | % atrasados | Nota |
+|---|---:|---:|---:|---:|
+| Siempre cumple | 372 | 1,9 días | 4,9% | 4,29 |
+| Hasta 10% fuera de plazo | 497 | 2,6 días | 6,0% | 4,22 |
+| 10 a 25% fuera de plazo | 242 | 4,2 días | 7,8% | 4,09 |
+| Más de 25% fuera de plazo | 147 | 6,9 días | 12,7% | 3,77 |
+
+- Los vendedores que más fallan tienen **2,6 veces más atrasos** que los que siempre cumplen.
+- Incluso los vendedores que siempre cumplen tienen un 4,9% de atrasos: ese es el atraso propio del transporte.
+- Las diferencias entre vendedores son claras, lo que justifica segmentarlos.
 
 ## Autor
 

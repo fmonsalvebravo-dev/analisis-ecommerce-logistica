@@ -19,7 +19,7 @@ analisis-ecommerce-logistica/
 │   ├── 03_limpieza_vistas.sql        Reglas de limpieza convertidas en vistas
 │   ├── 04_ventas.sql                 Tendencias, categorías y regiones
 │   ├── 05_atrasos_y_resenas.sql      Atrasos, notas, promesa de entrega y origen del atraso
-│   ├── 06_recompra.sql               (pendiente) Clientes que vuelven a comprar
+│   ├── 06_recompra.sql               Definición de recompra y clientes que vuelven
 │   └── 07_vendedores.sql             (pendiente) Características de vendedores para la segmentación
 ├── python/                           (pendiente)
 └── powerbi/                          (pendiente)
@@ -157,6 +157,7 @@ Las preguntas posibles se evaluaron según cuatro criterios: **impacto en el neg
 2. **Verificación de las vistas:** una sola reseña y una sola fila por pedido, y ventas que cuadran entre vistas (R$ 15,7 millones). Quedaron 97.905 pedidos en el período, y 96.018 sirven para analizar atrasos (98%).
 3. **Ventas:** evolución mensual y crecimiento mes a mes (`LAG`), participación de cada categoría y concentración de ventas (sumas de ventana acumuladas), categoría líder por estado (`RANK` con `PARTITION BY`) y ventas por estado.
 4. **Atrasos y reseñas:** nota y % de malas reseñas (1 o 2 estrellas) según atraso y tramo de atraso, holgura de la fecha prometida por estado, descomposición del tiempo de entrega en preparación del vendedor y transporte, efecto de recibir el pedido por partes, cambio de nota entre reseñas de un mismo pedido (`COUNT(*) OVER`, `MAX(CASE ...)`) y peso del flete por estado.
+5. **Recompra:** tiempo entre la primera y la segunda compra (`LAG` con `PARTITION BY`), definición de recompra sin compras del mismo día y con igual tiempo de observación para todos, vista `v_clientes` con una fila por cliente y los datos de su primera compra, y comparación de la recompra según la nota y el atraso de la primera compra.
 
 **Etapa 2: Python** *(pendiente)*
 
@@ -253,6 +254,32 @@ Las consultas completas están en [`sql/05_atrasos_y_resenas.sql`](sql/05_atraso
 
 - El flete es el 12,2% de lo que paga un cliente en São Paulo y entre 17% y 22% en el Norte y el Nordeste. Los clientes lejanos también compran productos más caros.
 - La nota sigue a los atrasos, no al flete: el Norte paga fletes altos pero tiene buenas notas y pocos atrasos, mientras que Río de Janeiro paga fletes bajos pero tiene mala nota y muchos atrasos.
+
+### Recompra: ¿por qué los clientes no vuelven?
+
+Las consultas completas están en [`sql/06_recompra.sql`](sql/06_recompra.sql).
+
+**Definir bien qué es "volver".** Antes de comparar, se corrigieron dos trampas:
+
+- **El 30% de las "segundas compras" ocurrió el mismo día** que la primera. No es recompra: el cliente aún no había recibido nada.
+- **No todos tuvieron el mismo tiempo para volver.** Un cliente que compró por primera vez en agosto de 2018 casi no tiene datos posteriores.
+
+Por eso se definió que un cliente **volvió** si hizo otra compra en un día distinto dentro de los 180 días siguientes (el plazo en que vuelve el 76% de los recurrentes), y solo se consideraron los **56.338 clientes con primera compra antes de marzo de 2018**, que tuvieron al menos 6 meses para volver.
+
+**1. Solo el 2% de los clientes vuelve a comprar en 6 meses** (1.121 de 56.338).
+
+**2. La experiencia de la primera compra influye poco en volver.**
+
+| Primera compra | % recompra |
+|---|---:|
+| Nota 5 | 2,15% |
+| Nota 1 | 1,68% |
+| Llegó a tiempo | 2,02% |
+| Llegó atrasada | 1,61% |
+
+- Una mala nota o un atraso bajan la recompra solo unas décimas. **Incluso los clientes que pusieron 5 estrellas casi no vuelven.**
+- La baja recompra parece un **problema estructural, no logístico**. Una hipótesis: Olist conecta a vendedores pequeños con grandes tiendas online, y el cliente compra en la tienda grande muchas veces sin saber que detrás está Olist. Si vuelve a esa tienda y le compra a otro vendedor, esa compra no aparece en estos datos.
+- Es una conclusión negativa, pero valiosa: mejorar la logística mejora la satisfacción, pero no basta para que los clientes vuelvan.
 
 ## Autor
 

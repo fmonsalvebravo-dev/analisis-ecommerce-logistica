@@ -18,7 +18,7 @@ analisis-ecommerce-logistica/
 │   ├── 02_exploracion_inicial.sql    Inventario, verificación de hipótesis y reglas de limpieza
 │   ├── 03_limpieza_vistas.sql        Reglas de limpieza convertidas en vistas
 │   ├── 04_ventas.sql                 Tendencias, categorías y regiones
-│   ├── 05_atrasos_y_resenas.sql      (pendiente) Atrasos, notas y origen del atraso
+│   ├── 05_atrasos_y_resenas.sql      Atrasos, notas, promesa de entrega y origen del atraso
 │   ├── 06_recompra.sql               (pendiente) Clientes que vuelven a comprar
 │   └── 07_vendedores.sql             (pendiente) Características de vendedores para la segmentación
 ├── python/                           (pendiente)
@@ -156,6 +156,7 @@ Las preguntas posibles se evaluaron según cuatro criterios: **impacto en el neg
    - `v_items`: una fila por producto vendido, con categoría y estados del vendedor y del cliente.
 2. **Verificación de las vistas:** una sola reseña y una sola fila por pedido, y ventas que cuadran entre vistas (R$ 15,7 millones). Quedaron 97.905 pedidos en el período, y 96.018 sirven para analizar atrasos (98%).
 3. **Ventas:** evolución mensual y crecimiento mes a mes (`LAG`), participación de cada categoría y concentración de ventas (sumas de ventana acumuladas), categoría líder por estado (`RANK` con `PARTITION BY`) y ventas por estado.
+4. **Atrasos y reseñas:** nota y % de malas reseñas (1 o 2 estrellas) según atraso y tramo de atraso, holgura de la fecha prometida por estado, descomposición del tiempo de entrega en preparación del vendedor y transporte, efecto de recibir el pedido por partes, cambio de nota entre reseñas de un mismo pedido (`COUNT(*) OVER`, `MAX(CASE ...)`) y peso del flete por estado.
 
 **Etapa 2: Python** *(pendiente)*
 
@@ -203,6 +204,55 @@ Las consultas completas están en [`sql/04_ventas.sql`](sql/04_ventas.sql). En e
 
 - Solo SP es más de un tercio de las ventas, y con **7 de los 27 estados se llega al 80%**.
 - El valor por pedido es mayor en los estados alejados del sudeste (por ejemplo, R$ 265 en Paraíba contra R$ 143 en SP). Una posible explicación es el costo del flete, que se revisa en el análisis de atrasos.
+
+### Atrasos y satisfacción: ¿qué hace que un cliente quede insatisfecho?
+
+Las consultas completas están en [`sql/05_atrasos_y_resenas.sql`](sql/05_atrasos_y_resenas.sql). Se analizaron los 96.018 pedidos entregados con fechas válidas. Se considera mala reseña una nota de 1 o 2 estrellas.
+
+**1. Un atraso baja la nota en 2 estrellas, y cada día extra pesa más.**
+
+| Entrega | Pedidos | Nota promedio | % malas reseñas |
+|---|---:|---:|---:|
+| Más de 7 días antes de lo prometido | 70.520 | 4,32 | 8,9% |
+| 0 a 7 días antes | 18.481 | 4,19 | 10,4% |
+| 1 a 3 días tarde | 1.850 | 3,29 | 32,2% |
+| 4 a 7 días tarde | 1.746 | 2,10 | 67,6% |
+| Más de 7 días tarde | 2.779 | 1,70 | 79,3% |
+
+- Solo el 6,8% de los pedidos llega tarde, pero con más de una semana de atraso **4 de cada 5 clientes ponen 1 o 2 estrellas**.
+- Llegar antes de lo prometido casi no mejora la nota. La satisfacción depende de **cumplir la promesa, no de llegar rápido**.
+
+**2. Las fechas prometidas son muy holgadas, y el atraso depende de cómo se calibra la promesa, no de la distancia.**
+
+- El 79% de los pedidos a tiempo llega con más de una semana de anticipación. En São Paulo se prometen 19 días y el pedido llega en 8,7.
+- El **Nordeste** concentra los atrasos (hasta 21,5% en Alagoas), con promesas de ~30 días y solo 8 a 10 días de margen. El **Norte**, la región más lejana, casi no se atrasa (menos de 4%) porque se le prometen 41 a 46 días.
+- **Río de Janeiro** es una excepción: está junto a São Paulo, pero se atrasa casi 3 veces más (12,2% vs 4,5%), y es el segundo mercado más grande.
+
+**3. El vendedor multiplica el riesgo, pero la mayoría de los atrasos ocurre en el transporte.**
+
+| | Pedidos | Preparación (vendedor) | Transporte | % atrasados |
+|---|---:|---:|---:|---:|
+| Vendedor cumplió su plazo | 87.448 | 2,6 días | 9,3 días | 5,4% |
+| Vendedor fuera de plazo | 8.570 | 9,5 días | 9,9 días | 21,1% |
+
+- Cuando el vendedor no cumple, el pedido tiene **4 veces más probabilidad** de llegar tarde, y el transporte no recupera el tiempo perdido.
+- Pero los vendedores cumplen el 91% de las veces, así que **el 72% de los pedidos atrasados tuvo un vendedor que cumplió**. En volumen, el problema principal es el transporte.
+
+**4. Recibir el pedido por partes baja la nota, aunque llegue a tiempo.**
+
+| Pedidos a tiempo | Pedidos | Nota promedio | % malas reseñas |
+|---|---:|---:|---:|
+| Un vendedor, un ítem | 80.022 | 4,36 | 7,5% |
+| Un vendedor, varios ítems | 7.756 | 3,85 | 21,0% |
+| Varios vendedores | 1.223 | 2,88 | 46,8% |
+
+- Un pedido con varios vendedores, que suele llegar en paquetes separados, tiene peor nota que uno con 1 a 3 días de atraso.
+- En los pocos pedidos con varias reseñas, **cuando la nota sube, el pedido solía tener varios vendedores o ítems**: consistente con un cliente que evalúa mal al recibir una parte y mejora la nota cuando llega lo que faltaba. Son grupos pequeños (unos 10 pedidos), por lo que es una señal y no una conclusión.
+
+**5. El flete pesa casi el doble en los estados lejanos, pero no parece bajar la nota.**
+
+- El flete es el 12,2% de lo que paga un cliente en São Paulo y entre 17% y 22% en el Norte y el Nordeste. Los clientes lejanos también compran productos más caros.
+- La nota sigue a los atrasos, no al flete: el Norte paga fletes altos pero tiene buenas notas y pocos atrasos, mientras que Río de Janeiro paga fletes bajos pero tiene mala nota y muchos atrasos.
 
 ## Autor
 

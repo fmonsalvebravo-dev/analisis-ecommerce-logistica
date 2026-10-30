@@ -21,7 +21,10 @@ analisis-ecommerce-logistica/
 │   ├── 05_atrasos_y_resenas.sql      Atrasos, notas, promesa de entrega y origen del atraso
 │   ├── 06_recompra.sql               Definición de recompra y clientes que vuelven
 │   └── 07_vendedores.sql             Características de cada vendedor para la segmentación
-├── python/                           (pendiente)
+├── python/
+│   ├── 01_satisfaccion.ipynb         Efecto propio de cada factor en las malas reseñas
+│   ├── 02_recompra.ipynb             (pendiente) Pruebas estadísticas de recompra
+│   └── 03_segmentacion_vendedores.ipynb  (pendiente) Segmentación de vendedores con k-means
 └── powerbi/                          (pendiente)
 ```
 
@@ -34,7 +37,7 @@ analisis-ecommerce-logistica/
 ## Herramientas
 
 - **MySQL 8** y MySQL Workbench
-- **Python 3.11:** pandas, SQLAlchemy, scikit-learn (Jupyter Notebook en VS Code)
+- **Python 3.11:** pandas, NumPy, SQLAlchemy, statsmodels, scikit-learn y matplotlib (Jupyter Notebook en VS Code)
 - **Power BI Desktop:** DAX, Power Query
 
 ## Cómo reproducir el proyecto
@@ -43,6 +46,7 @@ analisis-ecommerce-logistica/
 2. En MySQL Workbench, habilitar la carga de archivos locales: *Edit Connection > Advanced > Others:* `OPT_LOCAL_INFILE=1`.
 3. En `sql/01_creacion_y_carga.sql`, reemplazar `RUTA/A/TU/CARPETA/` por la carpeta donde quedaron los CSV y ejecutar el script. Al final muestra una verificación de filas cargadas.
 4. Ejecutar los demás scripts en orden.
+5. Instalar las librerías de Python (`pip install pandas sqlalchemy pymysql statsmodels scikit-learn matplotlib`) y ejecutar los notebooks de la carpeta `python/` en orden. Cada notebook pide la contraseña de MySQL al inicio, así no queda guardada en el código.
 
 ## Etapa 0: Entendimiento de los datos
 
@@ -139,7 +143,7 @@ Las preguntas posibles se evaluaron según cuatro criterios: **impacto en el neg
 
 ## Metodología
 
-**Etapa 0: Carga y exploración** 
+**Etapa 0: Carga y exploración**
 
 1. Creación de la base en MySQL con claves primarias y foráneas, y carga de los 9 CSV con `LOAD DATA`. Los códigos postales se guardaron como texto para conservar los ceros a la izquierda, y las celdas vacías como `NULL`.
 2. Verificación de las filas cargadas contra los totales publicados en Kaggle.
@@ -147,7 +151,7 @@ Las preguntas posibles se evaluaron según cuatro criterios: **impacto en el neg
 4. Verificación de hipótesis sobre claves, duplicados, valores faltantes y coherencia de fechas.
 5. Definición de las reglas de limpieza y priorización de las preguntas de negocio.
 
-**Etapa 1: SQL** 
+**Etapa 1: SQL**
 
 1. **Reglas de limpieza convertidas en vistas**, para aplicarlas una sola vez y que todos los análisis partan de los mismos datos:
    - `v_resenas`: una reseña por pedido, la más reciente (`ROW_NUMBER`).
@@ -160,7 +164,9 @@ Las preguntas posibles se evaluaron según cuatro criterios: **impacto en el neg
 5. **Recompra:** tiempo entre la primera y la segunda compra (`LAG` con `PARTITION BY`), definición de recompra sin compras del mismo día y con igual tiempo de observación para todos, vista `v_clientes` con una fila por cliente y los datos de su primera compra, y comparación de la recompra según la nota y el atraso de la primera compra.
 6. **Vendedores:** distribución de pedidos y ventas por vendedor, y vista `v_vendedores` con una fila por vendedor: volumen (pedidos, ventas, ticket, categorías, días activo) y calidad (preparación, cumplimiento de plazo, atrasos, nota y malas reseñas). Las métricas de calidad usan solo pedidos de un vendedor, para atribuir bien la responsabilidad. Es la base de la segmentación en Python.
 
-**Etapa 2: Python** *(pendiente)*
+**Etapa 2: Python** *(en curso)*
+
+1. **Satisfacción:** regresión logística (statsmodels) para estimar el efecto propio de cada factor sobre la probabilidad de una mala reseña, comparando pedidos iguales en todo lo demás. Resultados expresados como razón de chances con intervalos de confianza, interacción entre atraso y flete, y traducción a probabilidades con escenarios de pedidos tipo.
 
 **Etapa 3: Power BI** *(pendiente)*
 
@@ -309,6 +315,31 @@ Las consultas completas están en [`sql/07_vendedores.sql`](sql/07_vendedores.sq
 - Los vendedores que más fallan tienen **2,6 veces más atrasos** que los que siempre cumplen.
 - Incluso los vendedores que siempre cumplen tienen un 4,9% de atrasos: ese es el atraso propio del transporte.
 - Las diferencias entre vendedores son claras, lo que justifica segmentarlos.
+
+## Análisis en Python
+
+### Satisfacción: ¿qué factores causan una mala reseña?
+
+El notebook completo está en [`python/01_satisfaccion.ipynb`](python/01_satisfaccion.ipynb).
+
+En SQL, algunos factores aparecían mezclados: el Nordeste tiene fletes altos y también muchos atrasos, y los pedidos con varios vendedores tienen más ítems y más valor. Una **regresión logística** con 95.376 pedidos permite separar el efecto propio de cada factor, **comparando pedidos iguales en todo lo demás** (atraso, tipo de pedido, región, flete y valor).
+
+**Probabilidad estimada de mala reseña (1 o 2 estrellas) según el modelo:**
+
+| Pedido (Sudeste, flete y valor típicos) | Probabilidad de mala reseña |
+|---|---:|
+| Típico: un vendedor, un ítem, llega con holgura | 7,3% |
+| A tiempo, varios ítems de un vendedor | 17,7% |
+| Llega 1 a 3 días tarde | 29,8% |
+| **A tiempo, pero con varios vendedores** | **43,1%** |
+| Llega 4 a 7 días tarde | 65,7% |
+| Llega más de 7 días tarde | 77,9% |
+
+- **El atraso es el factor más fuerte.** Con más de 7 días de atraso, las chances de una mala reseña se multiplican por 45 (de 7% a 78% de probabilidad).
+- **Recibir el pedido por partes tiene efecto propio.** Un pedido a tiempo pero con varios vendedores, que suele llegar en paquetes separados, tiene más riesgo que uno que llega 1 a 3 días tarde. El efecto se mantiene al comparar pedidos con el mismo flete y valor.
+- **La región no tiene efecto propio.** Las peores notas del Nordeste se explican por sus atrasos, no por la región.
+- **El flete pesa poco, y solo cuando el pedido llega a tiempo.** En pedidos a tiempo, duplicar el flete sube un 13% las chances de mala reseña; en pedidos atrasados no tiene efecto, porque el atraso domina la experiencia.
+- **El valor del producto no influye en la nota.**
 
 ## Autor
 

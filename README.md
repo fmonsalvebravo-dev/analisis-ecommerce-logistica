@@ -2,7 +2,7 @@
 
 ¿Los atrasos en la entrega bajan la satisfacción de los clientes? ¿El atraso se origina en el vendedor o en el transporte? ¿Por qué casi ningún cliente vuelve a comprar? Este proyecto analiza unos 100 mil pedidos reales de un marketplace brasileño en cuatro etapas: **exploración inicial** de una base desconocida, **SQL** para limpiar los datos y responder las preguntas de negocio, **Python** para separar el efecto de cada factor y segmentar a los vendedores, y **Power BI** para presentar los resultados.
 
->**Proyecto en desarrollo.** Etapas 0 (carga y exploración) y 1 (SQL) completas; Etapa 2 (Python) en curso. Las siguientes etapas se irán agregando a medida que avance el análisis.
+>**Proyecto en desarrollo.** Etapas 0 (carga y exploración), 1 (SQL) y 2 (Python) completas; Etapa 3 (Power BI) en curso. Las siguientes etapas se irán agregando a medida que avance el análisis.
 
 ## Hallazgos principales
 
@@ -24,7 +24,7 @@ analisis-ecommerce-logistica/
 ├── python/
 │   ├── 01_satisfaccion.ipynb         Efecto propio de cada factor en las malas reseñas
 │   ├── 02_recompra.ipynb             Pruebas estadísticas de recompra
-│   └── 03_segmentacion_vendedores.ipynb  (pendiente) Segmentación de vendedores con k-means
+│   └── 03_segmentacion_vendedores.ipynb  Segmentación de vendedores con k-means
 └── powerbi/                          (pendiente)
 ```
 
@@ -164,10 +164,11 @@ Las preguntas posibles se evaluaron según cuatro criterios: **impacto en el neg
 5. **Recompra:** tiempo entre la primera y la segunda compra (`LAG` con `PARTITION BY`), definición de recompra sin compras del mismo día y con igual tiempo de observación para todos, vista `v_clientes` con una fila por cliente y los datos de su primera compra, y comparación de la recompra según la nota y el atraso de la primera compra.
 6. **Vendedores:** distribución de pedidos y ventas por vendedor, y vista `v_vendedores` con una fila por vendedor: volumen (pedidos, ventas, ticket, categorías, días activo) y calidad (preparación, cumplimiento de plazo, atrasos, nota y malas reseñas). Las métricas de calidad usan solo pedidos de un vendedor, para atribuir bien la responsabilidad. Es la base de la segmentación en Python.
 
-**Etapa 2: Python** *(en curso)*
+**Etapa 2: Python**
 
 1. **Satisfacción:** regresión logística (statsmodels) para estimar el efecto propio de cada factor sobre la probabilidad de una mala reseña, comparando pedidos iguales en todo lo demás. Resultados expresados como razón de chances con intervalos de confianza, interacción entre atraso y flete, y traducción a probabilidades con escenarios de pedidos tipo.
 2. **Recompra:** prueba chi-cuadrado (scipy) para comparar la recompra según la nota y el atraso de la primera compra, y estimación del efecto en clientes reales para distinguir una diferencia significativa de una importante.
+3. **Segmentación de vendedores:** selección de variables por correlación (una por idea), logaritmo para las variables de volumen, escalado (`StandardScaler`), elección del número de grupos con el método del codo, el coeficiente de silueta y la interpretación de los perfiles, k-means (scikit-learn) y tabla `segmento_vendedores` guardada en MySQL para Power BI.
 
 **Etapa 3: Power BI** *(pendiente)*
 
@@ -357,6 +358,25 @@ En SQL, la recompra cambiaba apenas unas décimas según la primera experiencia.
 - **No hay evidencia de que un atraso en la primera compra haga que el cliente no vuelva**, aunque el atraso es lo que más baja la nota.
 - **Significativo no es lo mismo que importante.** En el mejor caso, si ningún cliente hubiera tenido una mala nota o un atraso, volverían como máximo unos **55 clientes más de 56.338**: la recompra pasaría de 1,99% a cerca de 2,1%.
 - **Conclusión:** mejorar la logística mejora mucho la satisfacción, pero no resuelve la recompra. Para que los clientes vuelvan hay que trabajar otros factores, como el vínculo con el cliente, que no están en estos datos.
+
+### Segmentación: ¿qué tipos de vendedores hay?
+
+El notebook completo está en [`python/03_segmentacion_vendedores.ipynb`](python/03_segmentacion_vendedores.ipynb).
+
+Se agruparon con **k-means** los 1.258 vendedores con 10 o más pedidos (91% de las ventas), usando cinco variables que miden cosas distintas: tamaño, precio, días de preparación, % de pedidos atrasados y nota promedio.
+
+| Segmento | Vendedores | % ventas | Preparación | % atrasados | Nota | Acción sugerida |
+|---|---:|---:|---:|---:|---:|---|
+| Grandes vendedores | 306 | 60,2% | 2,9 días | 6,2% | 4,2 | Cuidarlos: sostienen la mayor parte del negocio |
+| Alto valor | 206 | 18,1% | 3,1 días | 5,0% | 4,2 | Mantener el servicio en productos de precio alto |
+| Pequeños confiables | 416 | 8,4% | 2,3 días | 2,8% | 4,4 | Ayudarlos a crecer: ya tienen el mejor servicio |
+| Servicio irregular | 263 | 7,3% | 3,6 días | 11,6% | 3,9 | Monitorear y acompañar |
+| Servicio crítico | 67 | 6,0% | 9,4 días | 21,7% | 3,4 | Exigir mejoras o suspender |
+
+- **Tamaño y calidad son independientes:** un vendedor grande no es mejor ni peor que uno pequeño (correlación cercana a cero).
+- **Los 67 vendedores con servicio crítico** preparan sus pedidos en 9,4 días (el triple que el resto), se pasan de su plazo en el 40% de los pedidos y atrasan 1 de cada 5. Como generan solo el 6% de las ventas, exigirles mejoras tiene poco riesgo comercial.
+- **Los pequeños confiables** tienen el mejor servicio de todos y son candidatos para impulsar su crecimiento.
+- **Sobre el método:** se eligieron 5 grupos combinando el método del codo con la interpretación de los perfiles, porque separa a los vendedores problemáticos en dos niveles con acciones distintas. La silueta es baja (~0,20): los vendedores forman un continuo más que grupos naturales, así que los segmentos son una forma de priorizar acciones, no tipos fijos.
 
 ## Autor
 

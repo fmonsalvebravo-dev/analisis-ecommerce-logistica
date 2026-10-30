@@ -23,7 +23,7 @@ analisis-ecommerce-logistica/
 │   └── 07_vendedores.sql             Características de cada vendedor para la segmentación
 ├── python/
 │   ├── 01_satisfaccion.ipynb         Efecto propio de cada factor en las malas reseñas
-│   ├── 02_recompra.ipynb             (pendiente) Pruebas estadísticas de recompra
+│   ├── 02_recompra.ipynb             Pruebas estadísticas de recompra
 │   └── 03_segmentacion_vendedores.ipynb  (pendiente) Segmentación de vendedores con k-means
 └── powerbi/                          (pendiente)
 ```
@@ -167,6 +167,7 @@ Las preguntas posibles se evaluaron según cuatro criterios: **impacto en el neg
 **Etapa 2: Python** *(en curso)*
 
 1. **Satisfacción:** regresión logística (statsmodels) para estimar el efecto propio de cada factor sobre la probabilidad de una mala reseña, comparando pedidos iguales en todo lo demás. Resultados expresados como razón de chances con intervalos de confianza, interacción entre atraso y flete, y traducción a probabilidades con escenarios de pedidos tipo.
+2. **Recompra:** prueba chi-cuadrado (scipy) para comparar la recompra según la nota y el atraso de la primera compra, y estimación del efecto en clientes reales para distinguir una diferencia significativa de una importante.
 
 **Etapa 3: Power BI** *(pendiente)*
 
@@ -340,6 +341,22 @@ En SQL, algunos factores aparecían mezclados: el Nordeste tiene fletes altos y 
 - **La región no tiene efecto propio.** Las peores notas del Nordeste se explican por sus atrasos, no por la región.
 - **El flete pesa poco, y solo cuando el pedido llega a tiempo.** En pedidos a tiempo, duplicar el flete sube un 13% las chances de mala reseña; en pedidos atrasados no tiene efecto, porque el atraso domina la experiencia.
 - **El valor del producto no influye en la nota.**
+
+### Recompra: ¿la primera experiencia influye en que el cliente vuelva?
+
+El notebook completo está en [`python/02_recompra.ipynb`](python/02_recompra.ipynb).
+
+En SQL, la recompra cambiaba apenas unas décimas según la primera experiencia. Una **prueba chi-cuadrado** permite saber si esas diferencias son reales o casualidad, y un cálculo en clientes reales muestra si importan.
+
+| Primera compra | % recompra | Prueba chi-cuadrado |
+|---|---:|---|
+| Nota 5 vs nota 1 o 2 | 2,15% vs 1,65% | Significativa (p = 0,029) |
+| A tiempo vs atrasada | 2,02% vs 1,61% | No significativa (p = 0,094) |
+
+- **La nota tiene una relación real con la recompra, pero muy pequeña:** medio punto de diferencia.
+- **No hay evidencia de que un atraso en la primera compra haga que el cliente no vuelva**, aunque el atraso es lo que más baja la nota.
+- **Significativo no es lo mismo que importante.** En el mejor caso, si ningún cliente hubiera tenido una mala nota o un atraso, volverían como máximo unos **55 clientes más de 56.338**: la recompra pasaría de 1,99% a cerca de 2,1%.
+- **Conclusión:** mejorar la logística mejora mucho la satisfacción, pero no resuelve la recompra. Para que los clientes vuelvan hay que trabajar otros factores, como el vínculo con el cliente, que no están en estos datos.
 
 ## Autor
 

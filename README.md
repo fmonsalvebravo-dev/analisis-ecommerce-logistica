@@ -378,6 +378,21 @@ Se agruparon con **k-means** los 1.258 vendedores con 10 o más pedidos (91% de 
 - **Los pequeños confiables** tienen el mejor servicio de todos y son candidatos para impulsar su crecimiento.
 - **Sobre el método:** se eligieron 5 grupos combinando el método del codo con la interpretación de los perfiles, porque separa a los vendedores problemáticos en dos niveles con acciones distintas. La silueta es baja (~0,20): los vendedores forman un continuo más que grupos naturales, así que los segmentos son una forma de priorizar acciones, no tipos fijos.
 
+## Análisis descartados y posibles extensiones
+
+No todo lo que se puede analizar con estos datos vale la pena. Estos análisis se evaluaron y se dejaron fuera, o quedan como extensiones futuras:
+
+| Análisis | Decisión | Por qué |
+|---|---|---|
+| **Redes de transporte (rutas estado → estado)** | Próxima extensión | Encaja con el foco logístico: permitiría identificar las rutas más lentas, revisar la anomalía de Río de Janeiro y cruzar las rutas con los segmentos de vendedores. Solo sirven los pedidos de un vendedor, y muchas rutas tienen pocos pedidos |
+| **Segmentación RFM de clientes** | Reemplazada | El 97% de los clientes compra una sola vez, así que la frecuencia casi no varía. Se segmentaron los vendedores, que sí se diferencian |
+| **Análisis del texto de los comentarios** | Descartado | Están en portugués, la mayoría están vacíos y requieren otra técnica (procesamiento de lenguaje natural) |
+| **Mapas con coordenadas y distancias exactas** | Descartado | La tabla de coordenadas tiene unas 50 filas por código postal y faltan coordenadas para algunos clientes y vendedores. El análisis geográfico se hizo por estado |
+| **Medios de pago y cuotas** | Descartado | Tienen poca relación con las preguntas centrales del proyecto |
+| **Supervivencia de vendedores (abandono de la plataforma)** | Posible proyecto aparte | Interesante (Kaplan-Meier, modelo de Cox), pero los datos cubren solo 20 meses y terminan de golpe, por lo que definir el "abandono" requiere cuidado. Por su alcance, conviene como proyecto independiente |
+| **Pronóstico de ventas** | Descartado | Con 20 meses de datos y un solo Black Friday no se puede estimar bien la estacionalidad anual. Además, Olist no opera un almacén propio en este período (cada vendedor despacha), así que un pronóstico para planificar capacidad no aplica |
+| **Canasta de compra (reglas de asociación)** | Descartado | Casi todos los pedidos tienen un solo producto, y los que combinan categorías distintas son muy pocos: las reglas no serían confiables |
+
 ## Autor
 
 Francisco Monsalve Bravo, Ingeniero Civil Industrial

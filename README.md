@@ -13,11 +13,11 @@
 
 ## Dashboard
 
-![Resumen](powerbi/capturas/resumen.png)
+![Resumen](powerbi/capturas/resumen.PNG)
 
 | Ventas | Logística y satisfacción | Vendedores |
 |---|---|---|
-| ![Ventas](powerbi/capturas/ventas.png) | ![Logística](powerbi/capturas/logistica.png) | ![Vendedores](powerbi/capturas/vendedores.png) |
+| ![Ventas](powerbi/capturas/ventas.PNG) | ![Logística](powerbi/capturas/logistica.PNG) | ![Vendedores](powerbi/capturas/vendedores.PNG) |
 
 ## Estructura del repositorio
 

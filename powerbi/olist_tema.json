@@ -1,0 +1,66 @@
+{
+  "name": "Olist · E-commerce y logística",
+  "dataColors": [
+    "#1D6A72",
+    "#5E9AA0",
+    "#A9CBCE",
+    "#9AA3A6",
+    "#D9822B",
+    "#B9C1C3",
+    "#5B6669",
+    "#E1ECEC"
+  ],
+  "background": "#FFFFFF",
+  "foreground": "#1E2629",
+  "tableAccent": "#1D6A72",
+  "good": "#1D6A72",
+  "neutral": "#B9C1C3",
+  "bad": "#D9822B",
+  "maximum": "#1D6A72",
+  "center": "#A9CBCE",
+  "minimum": "#E1ECEC",
+  "textClasses": {
+    "callout": { "fontFace": "Segoe UI Semibold", "fontSize": 22, "color": "#1E2629" },
+    "title":   { "fontFace": "Segoe UI Semibold", "fontSize": 11, "color": "#1E2629" },
+    "header":  { "fontFace": "Segoe UI Semibold", "fontSize": 9,  "color": "#5B6669" },
+    "label":   { "fontFace": "Segoe UI", "fontSize": 9, "color": "#3A4447" }
+  },
+  "visualStyles": {
+    "*": {
+      "*": {
+        "title":      [{ "show": false }],
+        "background": [{ "show": false }],
+        "border":     [{ "show": false }],
+        "dropShadow": [{ "show": false }],
+        "valueAxis":  [{ "gridlineColor": { "solid": { "color": "#ECEEEE" } }, "labelColor": { "solid": { "color": "#5B6669" } } }],
+        "categoryAxis": [{ "labelColor": { "solid": { "color": "#5B6669" } } }],
+        "legend":     [{ "labelColor": { "solid": { "color": "#5B6669" } } }]
+      }
+    },
+    "page": {
+      "*": {
+        "background": [{ "color": { "solid": { "color": "#F4F5F5" } }, "transparency": 0 }],
+        "outspace":   [{ "color": { "solid": { "color": "#F4F5F5" } } }]
+      }
+    },
+    "card": {
+      "*": {
+        "categoryLabels": [{ "show": false }],
+        "labels": [{ "color": { "solid": { "color": "#1E2629" } }, "fontSize": 22 }]
+      }
+    },
+    "tableEx": {
+      "*": {
+        "grid": [{ "gridHorizontal": true, "gridHorizontalColor": { "solid": { "color": "#ECEEEE" } }, "gridVertical": false, "outlineColor": { "solid": { "color": "#D5DADA" } } }],
+        "columnHeaders": [{ "fontColor": { "solid": { "color": "#5B6669" } }, "backColor": { "solid": { "color": "#FFFFFF" } }, "fontFamily": "Segoe UI Semibold" }],
+        "values": [{ "fontColorPrimary": { "solid": { "color": "#3A4447" } }, "backColorPrimary": { "solid": { "color": "#FFFFFF" } }, "fontColorSecondary": { "solid": { "color": "#3A4447" } }, "backColorSecondary": { "solid": { "color": "#FFFFFF" } } }]
+      }
+    },
+    "slicer": {
+      "*": {
+        "header": [{ "show": true, "fontColor": { "solid": { "color": "#8A9396" } }, "textSize": 8 }],
+        "items":  [{ "fontColor": { "solid": { "color": "#1E2629" } }, "textSize": 10 }]
+      }
+    }
+  }
+}

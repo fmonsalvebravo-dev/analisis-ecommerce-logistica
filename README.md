@@ -2,11 +2,22 @@
 
 ¿Los atrasos en la entrega bajan la satisfacción de los clientes? ¿El atraso se origina en el vendedor o en el transporte? ¿Por qué casi ningún cliente vuelve a comprar? Este proyecto analiza unos 100 mil pedidos reales de un marketplace brasileño en cuatro etapas: **exploración inicial** de una base desconocida, **SQL** para limpiar los datos y responder las preguntas de negocio, **Python** para separar el efecto de cada factor y segmentar a los vendedores, y **Power BI** para presentar los resultados.
 
->**Proyecto en desarrollo.** Etapas 0 (carga y exploración), 1 (SQL) y 2 (Python) completas; Etapa 3 (Power BI) en curso. Las siguientes etapas se irán agregando a medida que avance el análisis.
-
 ## Hallazgos principales
 
-*Pendiente: se completa al terminar el análisis.*
+- **Cumplir la fecha prometida es lo que más pesa en la satisfacción.** Un pedido típico tiene 7% de probabilidad de recibir una mala reseña (1 o 2 estrellas); con más de una semana de atraso sube a 78%. Llegar antes de lo prometido casi no mejora la nota.
+- **Recibir el pedido por partes también molesta.** Un pedido que llega a tiempo pero con varios vendedores tiene 43% de probabilidad de mala reseña, más que uno que llega 1 a 3 días tarde (30%).
+- **Las promesas de entrega están mal calibradas por región.** El 79% de los pedidos a tiempo llega con más de una semana de sobra, pero el Nordeste, con menos margen, concentra los atrasos (hasta 21,5% en Alagoas). El Norte, la región más lejana, casi no se atrasa porque se le prometen 41 a 46 días.
+- **La mayoría de los atrasos ocurre en el transporte.** Un vendedor que se pasa de su plazo multiplica por 4 el riesgo de atraso, pero el 72% de los pedidos atrasados tuvo un vendedor que cumplió.
+- **La recompra no depende de la logística.** Solo el 2% de los clientes vuelve a comprar en 6 meses, incluso entre los que pusieron 5 estrellas. Eliminar todas las malas experiencias sumaría como máximo unos 55 clientes recurrentes de 56 mil.
+- **67 vendedores tienen servicio crítico.** Preparan sus pedidos en 9,4 días (el triple que el resto) y atrasan 1 de cada 5, pero generan solo el 6% de las ventas: exigirles mejoras tiene poco riesgo comercial.
+
+## Dashboard
+
+![Resumen](powerbi/capturas/resumen.png)
+
+| Ventas | Logística y satisfacción | Vendedores |
+|---|---|---|
+| ![Ventas](powerbi/capturas/ventas.png) | ![Logística](powerbi/capturas/logistica.png) | ![Vendedores](powerbi/capturas/vendedores.png) |
 
 ## Estructura del repositorio
 
@@ -20,12 +31,17 @@ analisis-ecommerce-logistica/
 │   ├── 04_ventas.sql                 Tendencias, categorías y regiones
 │   ├── 05_atrasos_y_resenas.sql      Atrasos, notas, promesa de entrega y origen del atraso
 │   ├── 06_recompra.sql               Definición de recompra y clientes que vuelven
-│   └── 07_vendedores.sql             Características de cada vendedor para la segmentación
+│   ├── 07_vendedores.sql             Características de cada vendedor para la segmentación
+│   └── 08_capa_powerbi.sql           Vistas y tablas que carga Power BI
 ├── python/
 │   ├── 01_satisfaccion.ipynb         Efecto propio de cada factor en las malas reseñas
 │   ├── 02_recompra.ipynb             Pruebas estadísticas de recompra
 │   └── 03_segmentacion_vendedores.ipynb  Segmentación de vendedores con k-means
-└── powerbi/                          (pendiente)
+└── powerbi/
+    ├── analisis_ecommerce_logistica.pbix  Dashboard interactivo
+    ├── olist_tema.json               Tema de colores y fuentes
+    ├── fondos/                       Imágenes de fondo de cada página
+    └── capturas/                     Imágenes de cada página
 ```
 
 ## Datos
@@ -38,15 +54,18 @@ analisis-ecommerce-logistica/
 
 - **MySQL 8** y MySQL Workbench
 - **Python 3.11:** pandas, NumPy, SQLAlchemy, statsmodels, scikit-learn y matplotlib (Jupyter Notebook en VS Code)
-- **Power BI Desktop:** DAX, Power Query
+- **Power BI Desktop:** DAX, Power Query y modelo en estrella
+- **Claude Design:** maqueta del dashboard, aplicada en Power BI con un tema JSON e imágenes de fondo
 
 ## Cómo reproducir el proyecto
 
 1. Descargar los 9 CSV desde Kaggle.
 2. En MySQL Workbench, habilitar la carga de archivos locales: *Edit Connection > Advanced > Others:* `OPT_LOCAL_INFILE=1`.
 3. En `sql/01_creacion_y_carga.sql`, reemplazar `RUTA/A/TU/CARPETA/` por la carpeta donde quedaron los CSV y ejecutar el script. Al final muestra una verificación de filas cargadas.
-4. Ejecutar los demás scripts en orden.
-5. Instalar las librerías de Python (`pip install pandas sqlalchemy pymysql statsmodels scikit-learn matplotlib`) y ejecutar los notebooks de la carpeta `python/` en orden. Cada notebook pide la contraseña de MySQL al inicio, así no queda guardada en el código.
+4. Ejecutar los scripts 02 a 07 en orden.
+5. Instalar las librerías de Python (`pip install pandas sqlalchemy pymysql statsmodels scikit-learn matplotlib`) y ejecutar los notebooks de la carpeta `python/` en orden. Cada notebook pide la contraseña de MySQL al inicio, así no queda guardada en el código. Los notebooks 01 y 03 guardan sus resultados en MySQL (`escenarios_resena` y `segmento_vendedores`).
+6. Ejecutar `sql/08_capa_powerbi.sql`, que usa esos resultados.
+7. Abrir `powerbi/analisis_ecommerce_logistica.pbix`. Para actualizar los datos se necesita la base MySQL local; el archivo incluye una copia de los datos, así que también se puede abrir y explorar sin conexión.
 
 ## Etapa 0: Entendimiento de los datos
 
@@ -170,7 +189,12 @@ Las preguntas posibles se evaluaron según cuatro criterios: **impacto en el neg
 2. **Recompra:** prueba chi-cuadrado (scipy) para comparar la recompra según la nota y el atraso de la primera compra, y estimación del efecto en clientes reales para distinguir una diferencia significativa de una importante.
 3. **Segmentación de vendedores:** selección de variables por correlación (una por idea), logaritmo para las variables de volumen, escalado (`StandardScaler`), elección del número de grupos con el método del codo, el coeficiente de silueta y la interpretación de los perfiles, k-means (scikit-learn) y tabla `segmento_vendedores` guardada en MySQL para Power BI.
 
-**Etapa 3: Power BI** *(pendiente)*
+**Etapa 3: Power BI**
+
+1. **Capa de datos en MySQL** (`08_capa_powerbi.sql`): vistas con las columnas listas para graficar (tramos de atraso, tipo de pedido, segmento y acción sugerida) y tablas de estados y categorías en español. Las reglas se definen una sola vez en SQL, para que el dashboard use exactamente las mismas definiciones del análisis.
+2. **Modelo en estrella:** dos tablas de hechos (`fact_pedidos` y `fact_items`) y dimensiones de fecha, estado, cliente, vendedor y categoría, con relaciones de uno a varios y filtro en una dirección.
+3. **Medidas DAX:** ventas, pedidos, ticket, % de atrasados, nota, % de malas reseñas, recompra y métricas por segmento, usando `CALCULATE`, `DIVIDE`, `SUMX` y `ALL` / `ALLSELECTED` para los porcentajes del total.
+4. **Diseño:** maqueta hecha con Claude Design y aplicada con un tema JSON (colores y fuentes) e imágenes de fondo por página, sobre las que se ubican los gráficos.
 
 ## Análisis en SQL
 
@@ -377,6 +401,40 @@ Se agruparon con **k-means** los 1.258 vendedores con 10 o más pedidos (91% de 
 - **Los 67 vendedores con servicio crítico** preparan sus pedidos en 9,4 días (el triple que el resto), se pasan de su plazo en el 40% de los pedidos y atrasan 1 de cada 5. Como generan solo el 6% de las ventas, exigirles mejoras tiene poco riesgo comercial.
 - **Los pequeños confiables** tienen el mejor servicio de todos y son candidatos para impulsar su crecimiento.
 - **Sobre el método:** se eligieron 5 grupos combinando el método del codo con la interpretación de los perfiles, porque separa a los vendedores problemáticos en dos niveles con acciones distintas. La silueta es baja (~0,20): los vendedores forman un continuo más que grupos naturales, así que los segmentos son una forma de priorizar acciones, no tipos fijos.
+
+## Dashboard en Power BI
+
+El archivo está en [`powerbi/analisis_ecommerce_logistica.pbix`](powerbi/analisis_ecommerce_logistica.pbix). Tiene cuatro páginas:
+
+| Página | Contenido | Para qué sirve |
+|---|---|---|
+| **Resumen** | Indicadores generales, ventas mensuales y los tres hallazgos clave | Entender la situación en un vistazo |
+| **Ventas** | Mapa de ventas por estado, pedidos y ticket por mes, y top 10 categorías, con filtros de región y fecha | Ver dónde y qué se vende |
+| **Logística y satisfacción** | Malas reseñas por tramo de atraso, atrasos por estado, origen del atraso y probabilidad de mala reseña según el modelo de Python | Entender qué deja insatisfecho al cliente y dónde actuar |
+| **Vendedores** | Tabla de segmentos con su acción sugerida, ventas vs atrasos por segmento y lista de vendedores filtrable | Decidir a qué vendedores apoyar y a cuáles exigir |
+
+**Decisiones de diseño:**
+
+- Cada gráfico tiene un **título con la conclusión**, para que el mensaje se entienda sin leer los números.
+- El **naranjo** se usa solo para el riesgo (atrasos, malas reseñas, Nordeste y vendedores con servicio crítico); el resto va en azul petróleo y grises.
+- El gráfico de escenarios y el indicador de recompra son resultados fijos del análisis: no cambian con los filtros, y así se indica en el dashboard.
+
+## Recomendaciones
+
+1. **Recalibrar la fecha prometida por región:** prometer menos días donde sobra margen (São Paulo y el Sudeste) y más donde falta (el Nordeste). Así se ofrecen plazos más atractivos sin aumentar los atrasos, y cumplir la promesa es lo que más influye en la nota.
+2. **Revisar el transporte en el Nordeste y en Río de Janeiro**, donde se concentran los atrasos aunque los vendedores cumplan.
+3. **Avisar al cliente cuando su pedido llegará en varios paquetes**, o consolidar los envíos de pedidos con varios vendedores.
+4. **Exigir mejoras a los 67 vendedores con servicio crítico** y acompañar a los 263 con servicio irregular. Generan poco más del 13% de las ventas, así que el riesgo comercial es bajo.
+5. **Trabajar la recompra con otras herramientas**, como programas de fidelización o comunicación directa con el cliente: mejorar la logística mejora la satisfacción, pero no hace que los clientes vuelvan.
+
+## Limitaciones
+
+- El análisis muestra **relaciones, no causas**. El modelo de satisfacción no incluye factores como la calidad del producto o la atención del vendedor, que no están en los datos.
+- Cada pedido tiene **una sola fecha de entrega**: si llega en varios paquetes, no se sabe a cuál corresponde.
+- Los datos cubren de 2017 a agosto de 2018 y terminan de golpe, por lo que la recompra se midió solo en clientes con al menos 6 meses de datos.
+- Algunos grupos son pequeños (estados del Norte, clientes con primera compra atrasada que volvieron, pedidos con varias reseñas): sus porcentajes deben tomarse como señales.
+- La segmentación de vendedores tiene una silueta baja (~0,20): los segmentos sirven para priorizar acciones, no son tipos naturales de vendedor.
+- Unos 190 pedidos con fechas imposibles se excluyeron del análisis de atrasos por ser errores de registro.
 
 ## Análisis descartados y posibles extensiones
 
